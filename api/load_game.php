@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/_cors.php';
+require_once __DIR__ . '/_util.php';
 header('Content-Type: application/json; charset=utf-8');
 
 function fail($msg, $code = 400)
@@ -9,13 +10,13 @@ function fail($msg, $code = 400)
     exit;
 }
 
-// Helper to generate random room (copied from create_room.php context)
+// Cryptographically-random room code (no ambiguous I/O/1/0).
 function genRoomCode()
 {
     $chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     $code = "";
     for ($i = 0; $i < 6; $i++)
-        $code .= $chars[rand(0, strlen($chars) - 1)];
+        $code .= $chars[random_int(0, strlen($chars) - 1)];
     return $code;
 }
 
@@ -36,28 +37,39 @@ $state = json_decode($content, true);
 if (!$state)
     fail("Dosya bozuk.");
 
-// Create new room
-$newRoom = genRoomCode();
-$destPath = __DIR__ . "/_rooms/{$newRoom}.json";
-
-// We need to reset some session-specific things in the state, like players' tokens
-// Because this is a "Load", the old tokens are invalid.
-// We must allow new players to join.
-// Reset players:
+// Fresh player tokens so new players can claim the seats; old tokens are void.
 $state["players"] = [
-    "w" => ["name" => "", "token" => "", "joined" => 0],
-    "b" => ["name" => "", "token" => "", "joined" => 0]
+    "w" => ["name" => "", "token" => bin2hex(random_bytes(16)), "joined" => 0],
+    "b" => ["name" => "", "token" => bin2hex(random_bytes(16)), "joined" => 0]
 ];
-// Keep move history, fen, pgn, etc.
-// Important: If the game was "over", it remains "over".
-// If the user wants to continue playing, we might need to manually unset "over" flag?
-// User requirement: "Load saved games". Usually implies viewing.
-// But if they want to continue, maybe they can match settings.
-// For now, we restore it AS IS. If it was Over, it loads as Over.
+// Reset volatile presence/typing; keep move history, fen, pgn, chat as-is.
+$state["active_users"] = [];
+unset($state["typing"]);
 
-if (!file_put_contents($destPath, json_encode($state, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT))) {
+// Create a new room under a unique code, retrying on collision and never
+// clobbering an existing room (exclusive create).
+$roomsDir = __DIR__ . "/_rooms";
+if (!is_dir($roomsDir))
+    @mkdir($roomsDir, 0755, true);
+
+$fp = false;
+$newRoom = "";
+for ($i = 0; $i < 12; $i++) {
+    $newRoom = genRoomCode();
+    $destPath = $roomsDir . "/{$newRoom}.json";
+    $fp = @fopen($destPath, 'x');
+    if ($fp !== false)
+        break;
+}
+if ($fp === false)
+    fail("Yeni oda oluşturulamadı.", 500);
+
+if (fwrite($fp, json_encode($state, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)) === false) {
+    fclose($fp);
+    @unlink($destPath);
     fail("Yeni oda oluşturulamadı.", 500);
 }
+fclose($fp);
 
 echo json_encode([
     "ok" => true,

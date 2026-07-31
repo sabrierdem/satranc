@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/_cors.php';
+require_once __DIR__ . '/_util.php';
 header('Content-Type: application/json; charset=utf-8');
 
 function fail($msg, $code = 400)
@@ -31,7 +32,9 @@ if ($room === "" || $token === "") {
     exit;
 }
 
-$path = __DIR__ . "/_rooms/{$room}.json";
+$path = cz_room_path($room);
+if (!$path)
+    exit;
 if (!file_exists($path))
     exit;
 
@@ -67,7 +70,7 @@ if (flock($fp, LOCK_EX)) {
         // or we can implement a softer check (e.g. mark as abandoned)
         // For now, we keep the room file so user can rejoin.
 
-
+        cz_cap_chat($state);
         ftruncate($fp, 0);
         rewind($fp);
         fwrite($fp, json_encode($state, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));

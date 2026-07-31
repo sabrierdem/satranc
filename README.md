@@ -53,3 +53,19 @@ python3 -m http.server 8000
 
 `api/_rooms/` ve `api/_saved_games/` klasörleri çalışma anında yazılan verileri
 tutar; içerikleri `.gitignore` ile depodan hariç tutulmuştur.
+
+## Lisans ve gizlilik
+
+- **Stockfish** motoru (`js/stockfish.js`, `js/stockfish.wasm`) GPLv3 altında
+  dağıtılır — bkz. `js/README-STOCKFISH.txt`. Projenin geri kalanı yazarın
+  kendi kodudur.
+- **Gizlilik / KVKK:** `privacy.html` toplanan verileri, saklama süresini ve
+  kayıtlı oyunların herkese açık olduğunu açıklar. Yayına almadan önce içindeki
+  `[site sahibinin iletişim e-postası]` alanını gerçek bir adresle değiştirin.
+
+## Güvenlik notu
+
+Sunucu, istemciden gelen hamleleri artık yetkili biçimde doğrular: `api/_chess.php`
+tam bir satranç kuralı motorudur ve `push_move.php` her hamlenin sırasını ve
+kurallara uygunluğunu sunucu tarafında kontrol eder (istemcinin bildirdiği
+şah-mat/FEN bilgisine güvenilmez).

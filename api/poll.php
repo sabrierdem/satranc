@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/_cors.php';
+require_once __DIR__ . '/_util.php';
 header('Content-Type: application/json; charset=utf-8');
 header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
 header("Cache-Control: post-check=0, pre-check=0", false);
@@ -14,12 +15,18 @@ function fail($msg, $code = 400)
 
 $room = mb_strtoupper(trim($_GET["room"] ?? ""), 'UTF-8');
 $since = intval($_GET["since"] ?? 0);
-$token = trim($_GET["token"] ?? "");
+// Prefer the token from a request header so it stays out of URLs / access logs;
+// fall back to the query param for backward compatibility.
+$token = trim($_SERVER["HTTP_X_ROOM_TOKEN"] ?? ($_GET["token"] ?? ""));
 
 if ($room === "" || $token === "")
   fail("Parametre eksik.");
 
-$path = __DIR__ . "/_rooms/{$room}.json";
+$path = cz_room_path($room);
+if (!$path)
+  fail("Geçersiz oda kodu.");
+if (!file_exists($path))
+  fail("Oda bulunamadı.", 404);
 $fp = fopen($path, 'c+');
 if (!$fp)
   fail("Oda açılamadı.", 500);
@@ -37,9 +44,15 @@ if (!$state) {
   fail("Oda verisi bozuk.", 500);
 }
 
-// auth: allow players and spectators who have any token
-$ok = !empty($token);
-if (!$ok) {
+// auth: the token must actually belong to THIS room -- either a player token
+// or a known active user (spectators get one on join). A random/foreign token
+// can no longer read a room's state or chat.
+$wTok = $state["players"]["w"]["token"] ?? "";
+$bTok = $state["players"]["b"]["token"] ?? "";
+$known = ($token === $wTok && $wTok !== "")
+  || ($token === $bTok && $bTok !== "")
+  || isset($state["active_users"][$token]);
+if (!$known) {
   flock($fp, LOCK_UN);
   fclose($fp);
   fail("Yetkisiz.", 403);
@@ -159,6 +172,7 @@ if (empty($state["active_users"])) {
 
 // 3. Save if needed
 if ($changed) {
+  cz_cap_chat($state);
   ftruncate($fp, 0);
   rewind($fp);
   fwrite($fp, json_encode($state, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));

@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/_cors.php';
+require_once __DIR__ . '/_util.php';
 header('Content-Type: application/json; charset=utf-8');
 
 function fail($msg, $code = 400)
@@ -25,8 +26,12 @@ function rand_room_code($len = 6)
   return $out;
 }
 
+// Throttle room creation per client (12 rooms / 60s) to prevent spam/disk-fill.
+if (!cz_rate_limit("create_room", 12, 60))
+  fail("Çok fazla oda oluşturuldu. Lütfen biraz bekleyin.", 429);
+
 $data = json_decode(file_get_contents("php://input"), true) ?: [];
-$name = trim($data["name"] ?? "");
+$name = mb_substr(trim($data["name"] ?? ""), 0, 40);
 if ($name === "")
   $name = "Anonim";
 
@@ -121,9 +126,18 @@ $state = [
   ],
 ];
 
-if (file_put_contents($path, json_encode($state, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX) === false) {
+// Exclusive create ('x'): if two clients race on the same code, only one wins
+// instead of silently clobbering the other's fresh room.
+$cfp = @fopen($path, 'x');
+if ($cfp === false) {
+  fail("Bu oda adı şu an kullanımda. Başka bir kod deneyin.");
+}
+if (fwrite($cfp, json_encode($state, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)) === false) {
+  fclose($cfp);
+  @unlink($path);
   fail("Oda kaydedilemedi.", 500);
 }
+fclose($cfp);
 
 // Aggressive Garbage Collector:
 // Delete rooms older than 60 minutes to strictly prevent stale data issues as requested

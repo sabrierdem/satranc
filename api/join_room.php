@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/_cors.php';
+require_once __DIR__ . '/_util.php';
 header('Content-Type: application/json; charset=utf-8');
 header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
 header("Cache-Control: post-check=0, pre-check=0", false);
@@ -27,10 +28,15 @@ $raw = file_get_contents("php://input");
 $data = json_decode($raw, true);
 $name = trim($data["name"] ?? "Anonim");
 $room = mb_strtoupper(trim($data["room"] ?? ""), 'UTF-8');
+$mode = $data["mode"] ?? "player"; // defined up front: the resume branch reads it too
 if ($room === "")
   fail("Oda kodu eksik.");
 
-$path = __DIR__ . "/_rooms/{$room}.json";
+$path = cz_room_path($room);
+if (!$path)
+  fail("Geçersiz oda kodu.");
+if (!file_exists($path))
+  fail("Oda bulunamadı.");
 $fp = fopen($path, 'c+');
 if (!$fp)
   fail("Oda açılamadı.");
@@ -113,6 +119,7 @@ if ($tokenIn && isset($state["active_users"][$tokenIn])) {
   }
 
   // Rewrite file atomically
+  cz_cap_chat($state);
   ftruncate($fp, 0);
   rewind($fp);
   fwrite($fp, json_encode($state, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
@@ -134,7 +141,6 @@ if ($tokenIn && isset($state["active_users"][$tokenIn])) {
 // --- NEW JOIN ---
 $color = "spectator";
 $token = null;
-$mode = $data["mode"] ?? "player";
 
 if ($mode === "spectator") {
   $color = "spectator";
@@ -170,6 +176,7 @@ $state["chat"][] = [
 ];
 
 // Rewrite file atomically
+cz_cap_chat($state);
 ftruncate($fp, 0);
 rewind($fp);
 fwrite($fp, json_encode($state, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));

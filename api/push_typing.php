@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/_cors.php';
+require_once __DIR__ . '/_util.php';
 header('Content-Type: application/json; charset=utf-8');
 
 function fail($msg, $code = 400)
@@ -18,7 +19,9 @@ $token = trim($data["token"] ?? "");
 if ($room === "" || $token === "")
     fail("Parametre eksik.");
 
-$path = __DIR__ . "/_rooms/{$room}.json";
+$path = cz_room_path($room);
+if (!$path)
+  fail("Geçersiz oda kodu.");
 if (!file_exists($path))
     fail("Oda yok.");
 

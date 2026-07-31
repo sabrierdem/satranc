@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/_cors.php';
+require_once __DIR__ . '/_util.php';
 header('Content-Type: application/json; charset=utf-8');
 header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
 header("Cache-Control: post-check=0, pre-check=0", false);
@@ -20,12 +21,12 @@ function loadRoom($path)
 }
 
 $room = mb_strtoupper(trim($_GET["room"] ?? ""), 'UTF-8');
-if ($room === "") {
+if ($room === "" || !cz_valid_room($room)) {
     echo json_encode(["ok" => true, "exists" => false]);
     exit;
 }
 
-$path = __DIR__ . "/_rooms/{$room}.json";
+$path = cz_room_path($room);
 $exists = file_exists($path);
 
 // Optional: Check if player slots are full if we wanted to give more info

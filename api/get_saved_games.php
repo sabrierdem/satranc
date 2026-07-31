@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/_cors.php';
+require_once __DIR__ . '/_util.php';
 header('Content-Type: application/json; charset=utf-8');
 
 $dir = __DIR__ . "/_saved_games";
@@ -16,12 +17,13 @@ foreach ($files as $f) {
         $name = basename($f);
         $time = filemtime($f);
         // Extract display name if possible
-        // Format: YYYYMMDD_HHMMSS_{name}.json
+        // Format: YYYYMMDD_HHMMSS_{name}_{rand}.json  (older files have no _{rand})
         $parts = explode("_", $name, 3);
         $displayName = $name;
         if (count($parts) >= 3) {
-            $displayName = $parts[2];
-            $displayName = str_replace(".json", "", $displayName);
+            $displayName = str_replace(".json", "", $parts[2]);
+            // drop the 6-hex random suffix added by save_game
+            $displayName = preg_replace('/_[0-9a-f]{6}$/', '', $displayName);
         }
 
         $result[] = [

@@ -454,6 +454,9 @@
       <div style="height:8px"></div>
       <div class="muted" id="lobbyStatus"></div>
       <div class="err" id="errBox"></div>
+      <div class="muted" style="margin-top:14px; font-size:12px;">
+        <a href="privacy.html" style="color:var(--muted)">Gizlilik ve Aydınlatma Metni</a>
+      </div>
     </div>
 
     <!-- Difficulty Selection Modal -->
@@ -1103,8 +1106,9 @@
           if (!room || !token) return;
 
           try {
-            const url = api(`poll.php?room=${encodeURIComponent(room)}&since=${encodeURIComponent(lastSeq)}&token=${encodeURIComponent(token)}`);
-            const res = await fetch(url, { cache: "no-store" });
+            // Token goes in a header, not the URL, so it stays out of access logs.
+            const url = api(`poll.php?room=${encodeURIComponent(room)}&since=${encodeURIComponent(lastSeq)}`);
+            const res = await fetch(url, { cache: "no-store", headers: { "X-Room-Token": token } });
             const j = await res.json();
 
             if (!j.ok) {
@@ -1612,8 +1616,8 @@
 
           if (room) {
             try {
-              // Fetch latest state including names
-              const res = await fetch(api(`poll.php?room=${encodeURIComponent(room)}&since=${lastSeq}&token=${token}`));
+              // Fetch latest state including names (token in header, not URL)
+              const res = await fetch(api(`poll.php?room=${encodeURIComponent(room)}&since=${lastSeq}`), { headers: { "X-Room-Token": token } });
               const j = await res.json();
 
               let w = "Beyaz";
