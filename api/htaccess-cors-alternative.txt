@@ -1,0 +1,25 @@
+# ALTERNATIVE deploy path -- only use this if you would rather NOT overwrite
+# the 15 endpoint .php files on satrancevi.com.tr.
+#
+# Append these two lines to api/.htaccess and upload only _cors.php.
+# auto_prepend_file runs _cors.php before every PHP request in this directory,
+# which removes the need for the `require_once` line in each endpoint.
+#
+# Caveat: auto_prepend_file via .htaccess only works when PHP runs as an Apache
+# module (mod_php). On FastCGI/PHP-FPM it is ignored -- put the same directive in
+# a `.user.ini` file in api/ instead, or fall back to uploading the 15 endpoints.
+#
+# After uploading, verify with:
+#   curl -sI -X OPTIONS -H "Origin: https://sabrierdem.github.io" \
+#     -H "Access-Control-Request-Method: POST" \
+#     https://satrancevi.com.tr/api/create_room.php | grep -i access-control
+# You should see: access-control-allow-origin: https://sabrierdem.github.io
+
+<IfModule mod_php7.c>
+  php_value auto_prepend_file "/full/server/path/to/api/_cors.php"
+</IfModule>
+
+# --- .user.ini variant (PHP-FPM / FastCGI) ---
+# Create api/.user.ini containing exactly one line:
+#   auto_prepend_file = "/full/server/path/to/api/_cors.php"
+# Note: .user.ini changes can take up to 5 minutes to take effect (user_ini.cache_ttl).
