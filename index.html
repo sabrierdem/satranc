@@ -414,6 +414,107 @@
       transition: opacity 0.3s;
       text-align: center;
     }
+
+    /* Floating version badge (bottom-right, fixed) */
+    #verBadge {
+      position: fixed;
+      right: 12px;
+      bottom: 12px;
+      z-index: 1000;
+      padding: 5px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .3px;
+      color: var(--muted);
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      cursor: pointer;
+      user-select: none;
+      opacity: .7;
+      transition: opacity .15s, color .15s, border-color .15s;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, .35);
+    }
+
+    #verBadge:hover {
+      opacity: 1;
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    /* Changelog modal */
+    #verModal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .8);
+      z-index: 1001;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    #verModal .box {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      max-width: 480px;
+      width: 100%;
+      max-height: 80vh;
+      overflow-y: auto;
+      padding: 20px 22px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, .5);
+    }
+
+    #verModal .box h3 {
+      margin: 0 0 4px;
+      color: var(--text);
+    }
+
+    #verModal .box .sub {
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 14px;
+    }
+
+    #verModal .rel {
+      padding: 10px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    #verModal .rel .ver {
+      font-weight: 800;
+      color: var(--accent);
+    }
+
+    #verModal .rel .date {
+      color: var(--muted);
+      font-size: 11px;
+      margin-left: 6px;
+    }
+
+    #verModal .rel ul {
+      margin: 6px 0 0;
+      padding-left: 18px;
+      color: var(--text);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    #verModal .closeRow {
+      text-align: right;
+      margin-top: 14px;
+    }
+
+    #verModal .closeRow button {
+      background: var(--accent);
+      color: #04201b;
+      border: 0;
+      border-radius: 8px;
+      padding: 8px 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
   </style>
 </head>
 
@@ -2226,6 +2327,69 @@
           setTimeout(() => joinRoom("player"), 100);
         }
 
+      })();
+    </script>
+
+    <!-- Floating version badge + changelog -->
+    <div id="verBadge" title="Sürüm geçmişini görmek için tıklayın">v0.0.0</div>
+    <div id="verModal">
+      <div class="box">
+        <h3>Sürüm Geçmişi</h3>
+        <div class="sub" id="verModalCurrent"></div>
+        <div id="verModalList"></div>
+        <div class="closeRow"><button type="button" id="verModalClose">Kapat</button></div>
+      </div>
+    </div>
+    <script>
+      (() => {
+        // Single source of truth for the app version + modification history.
+        // Newest release first; the badge shows CHANGELOG[0].version.
+        const CHANGELOG = [
+          {
+            version: "1.2.0", date: "2026-07-31", changes: [
+              "Sunucu tarafında hamle doğrulaması (kural motoru) — hile önleme",
+              "Kayıtlı oyunlarda gizli anahtarlar temizlendi",
+              "Oda kodu doğrulama, hız sınırlama ve atomik yazma",
+              "Gizlilik/Aydınlatma metni ve Stockfish (GPLv3) bilgisi eklendi",
+            ]
+          },
+          {
+            version: "1.1.0", date: "2026-07-31", changes: [
+              "GitHub Pages dağıtımı ve satrancevi.com.tr API entegrasyonu (CORS)",
+              "Bu sürüm rozeti ve sürüm geçmişi eklendi",
+            ]
+          },
+          {
+            version: "1.0.0", date: "2026-02-02", changes: [
+              "İlk sürüm: çevrimiçi oda, bilgisayara karşı oyun (Stockfish), sohbet",
+            ]
+          },
+        ];
+
+        const APP_VERSION = CHANGELOG[0].version;
+        const badge = document.getElementById("verBadge");
+        const modal = document.getElementById("verModal");
+        badge.textContent = "v" + APP_VERSION;
+
+        document.getElementById("verModalCurrent").textContent =
+          "Güncel sürüm: v" + APP_VERSION + " (" + CHANGELOG[0].date + ")";
+
+        const esc = (s) => (s + "").replace(/[&<>"']/g, m =>
+          ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[m]));
+
+        document.getElementById("verModalList").innerHTML = CHANGELOG.map(r =>
+          `<div class="rel"><span class="ver">v${esc(r.version)}</span>` +
+          `<span class="date">${esc(r.date)}</span>` +
+          `<ul>${r.changes.map(c => `<li>${esc(c)}</li>`).join("")}</ul></div>`
+        ).join("");
+
+        const open = () => { modal.style.display = "flex"; };
+        const close = () => { modal.style.display = "none"; };
+        badge.addEventListener("click", open);
+        document.getElementById("verModalClose").addEventListener("click", close);
+        // Click on the dark backdrop (outside the box) closes it.
+        modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
+        document.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
       })();
     </script>
 
