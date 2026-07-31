@@ -1,0 +1,2216 @@
+<!doctype html>
+<html lang="tr">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Deniz Arat'ın Satranç Evi</title>
+
+  <link rel="apple-touch-icon" sizes="180x180" href="img/favicon_io/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="img/favicon_io/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="img/favicon_io/favicon-16x16.png">
+  <link rel="manifest" href="img/favicon_io/site.webmanifest">
+  <link rel="shortcut icon" href="img/favicon_io/favicon.ico">
+
+  <!-- jQuery (chessboard.js dependency) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+
+  <!-- chessboard.js -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.js"></script>
+
+  <!-- chess.js (0.10.3 - function names: in_check(), game_over(), etc.) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #0b1220;
+      --card: #0f1b33;
+      --muted: #9fb0d0;
+      --text: #e8eefc;
+      --line: rgba(255, 255, 255, .08);
+      --accent: #5eead4;
+      --danger: #ff5c7a;
+    }
+
+    * {
+      box-sizing: border-box
+    }
+
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      background: radial-gradient(1200px 600px at 10% 10%, rgba(94, 234, 212, .12), transparent 55%),
+        radial-gradient(900px 500px at 90% 0%, rgba(99, 102, 241, .12), transparent 55%),
+        var(--bg);
+      color: var(--text);
+    }
+
+    a {
+      color: var(--accent)
+    }
+
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 18px
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 14px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(15, 27, 51, .55);
+      backdrop-filter: blur(10px);
+    }
+
+    .brand {
+      font-weight: 800;
+      letter-spacing: .3px
+    }
+
+    .pill {
+      font-size: 12px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      color: var(--muted);
+    }
+
+    .card {
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(15, 27, 51, .55);
+      backdrop-filter: blur(10px);
+      padding: 14px;
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap
+    }
+
+    input {
+      background: rgba(255, 255, 255, .06);
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      outline: none;
+      min-width: 200px;
+    }
+
+    input::placeholder {
+      color: rgba(159, 176, 208, .7)
+    }
+
+    button {
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, .06);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    button.primary {
+      background: rgba(94, 234, 212, .12);
+      border-color: rgba(94, 234, 212, .35);
+      color: var(--text);
+    }
+
+    button.secondary {
+      background: rgba(255, 255, 255, .05);
+    }
+
+    button.danger {
+      background: rgba(255, 92, 122, .12);
+      border-color: rgba(255, 92, 122, .35);
+    }
+
+    button:disabled {
+      opacity: .45;
+      cursor: not-allowed
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 13px
+    }
+
+    .err {
+      color: #ffd1dc;
+      font-size: 13px;
+      min-height: 18px;
+      margin-top: 8px
+    }
+
+    /* --- Evaluation Bar --- */
+    .board-container {
+      display: flex;
+      gap: 12px;
+      align-items: stretch;
+      justify-content: center;
+    }
+
+    #evalBar {
+      width: 24px;
+      background: #333;
+      /* Dark side (Black) */
+      border-radius: 4px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column-reverse;
+      /* Fill from bottom for White */
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--line);
+    }
+
+    #evalFill {
+      width: 100%;
+      height: 50%;
+      /* Start at 50% */
+      background: #eee;
+      /* Light side (White) */
+      transition: height 0.8s ease-in-out;
+    }
+
+    /* Optional: Label to show numerical eval if needed */
+    .eval-label {
+      display: none;
+      /* too small for text usually, maybe tooltip? */
+    }
+
+    /* --- Restored Game CSS --- */
+    #gameGrid {
+      display: grid;
+      grid-template-columns: 6fr 4fr;
+      /* 60% - 40% */
+      gap: 20px;
+    }
+
+    @media (max-width: 800px) {
+      #gameGrid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .panel-title {
+      font-weight: 800;
+      margin: 0 0 8px 0
+    }
+
+    #board {
+      width: 100%;
+      max-width: 520px;
+      margin: 0 auto;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      box-shadow: 0 14px 40px rgba(0, 0, 0, .35);
+    }
+
+    .statusbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-top: 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, .04);
+      flex-wrap: wrap;
+    }
+
+    #gameStatus {
+      font-size: 14px
+    }
+
+    #sideHint {
+      color: var(--muted);
+      font-size: 13px
+    }
+
+    .box {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, .03);
+      padding: 10px 12px;
+    }
+
+    #moves {
+      white-space: pre-wrap;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 12px;
+      color: rgba(232, 238, 252, .9);
+      max-height: 180px;
+      overflow: auto;
+    }
+
+    #chat {
+      flex: none;
+      /* Disable flex grow to prevent expansion */
+      height: 600px;
+      /* Doubled height as requested */
+      overflow-y: scroll;
+      /* Always show scrollbar track (or auto) */
+      padding: 10px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, .03);
+    }
+
+    .msg {
+      padding: 8px 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, .05)
+    }
+
+    .msg:last-child {
+      border-bottom: none
+    }
+
+    .meta {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 4px
+    }
+
+    .txt {
+      font-size: 13px;
+      color: rgba(232, 238, 252, .95)
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, .10);
+      background: rgba(255, 255, 255, .04);
+    }
+
+    .badge.me {
+      border-color: rgba(94, 234, 212, .35);
+      background: rgba(94, 234, 212, .10)
+    }
+
+    /* --- Legal move highlight --- */
+    #board .highlight-square {
+      box-shadow: inset 0 0 0 4px rgba(94, 234, 212, .55);
+    }
+
+    #board .highlight-move {
+      box-shadow: inset 0 0 0 6px rgba(94, 234, 212, .25);
+      position: relative;
+    }
+
+    #board .highlight-move::after {
+      content: "";
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      background: rgba(94, 234, 212, .55);
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    /* --- Castling guide --- */
+    #board .highlight-castle-path {
+      box-shadow: inset 0 0 0 4px rgba(255, 193, 7, .55);
+    }
+
+    #board .highlight-castle-rook {
+      box-shadow: inset 0 0 0 5px rgba(255, 193, 7, .25);
+      position: relative;
+    }
+
+    #board .highlight-castle-rook::after {
+      content: "R";
+      font-weight: 800;
+      font-size: 14px;
+      color: rgba(255, 193, 7, .95);
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    /* --- King Check Highlight --- */
+    #board .highlight-check {
+      box-shadow: inset 0 0 40px rgba(255, 92, 122, 0.75) !important;
+    }
+
+    /* --- Typing Indicator --- */
+    .typing-indicator {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 6px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .dot {
+      width: 4px;
+      height: 4px;
+      background: var(--muted);
+      border-radius: 50%;
+      animation: blink 1.4s infinite;
+      opacity: 0.3;
+    }
+
+    .dot:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+
+    .dot:nth-child(3) {
+      animation-delay: 0.4s;
+    }
+
+    @keyframes blink {
+      0% {
+        opacity: 0.3;
+      }
+
+      20% {
+        opacity: 1;
+        transform: translateY(-2px);
+      }
+
+      100% {
+        opacity: 0.3;
+      }
+    }
+
+    /* Move Quality Feedback */
+    #moveFeedback {
+      position: absolute;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.85);
+      color: #fff;
+      padding: 12px 24px;
+      border-radius: 50px;
+      font-weight: 800;
+      font-size: 18px;
+      z-index: 100;
+      pointer-events: none;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      opacity: 0;
+      transition: opacity 0.3s;
+      text-align: center;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="brand">satrancevi.com.tr</div>
+      <div class="row" style="gap:8px">
+        <div class="pill" id="soundBtn" style="cursor:pointer">🔊 Ses</div>
+        <div class="pill" id="roomPill">Oda: —</div>
+      </div>
+    </div>
+
+    <!-- Lobby -->
+    <div class="card" id="lobbyCard">
+      <h3 class="panel-title">Deniz Arat'ın Satranç Evi</h3>
+      <div class="muted">İki kişi aynı oda koduyla bağlanıp satranç oynayabilir, mesajlaşabilirsiniz. Seyirci
+        olarak da
+        salona girebilirsiniz.</div>
+      <div style="height:10px"></div>
+
+      <div class="row">
+        <input id="name" placeholder="Adın (örn. Ali, Fatma, Elif)" />
+        <input id="room" placeholder="Oda Kodu (örn. A1B2C3)" />
+        <button class="primary" id="createBtn">Oda Oluştur</button>
+        <button class="secondary" id="joinBtn">Odaya Katıl (Oyuncu)</button>
+        <button class="secondary" id="joinWatchBtn">Odaya Katıl (Seyirci)</button>
+        <div style="width:100%; height:8px"></div>
+        <button class="secondary" id="localBtn"
+          style="background:rgba(94, 234, 212, .12); border-color:rgba(94, 234, 212, .35); color:var(--text);">Aynı
+          Cihazda Oyna (2 Kişi)</button>
+        <button class="secondary" id="computerBtn"
+          style="background:rgba(180, 255, 180, .12); border-color:rgba(180, 255, 180, .35); color:var(--text);">Bilgisayara
+          Karşı Oyna</button>
+        <button class="secondary" id="loadGameBtn">Kayıtlı Oyunlar</button>
+      </div>
+
+      <div style="height:8px"></div>
+      <div class="muted" id="lobbyStatus"></div>
+      <div class="err" id="errBox"></div>
+    </div>
+
+    <!-- Difficulty Selection Modal -->
+    <div id="diffModal"
+      style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.8); z-index:999; align-items:center; justify-content:center;">
+      <div class="card" style="width:300px; text-align:center;">
+        <h3 class="panel-title">Zorluk Seçin</h3>
+        <div style="height:10px"></div>
+        <button class="primary" onclick="_startComputerGame(1)" style="width:100%; margin-bottom:8px;">Kolay
+          (Başlangıç)</button>
+        <button class="secondary" onclick="_startComputerGame(5)" style="width:100%; margin-bottom:8px;">Orta
+          (Amatör)</button>
+        <button class="danger" onclick="_startComputerGame(20)" style="width:100%;">Zor (Usta)</button>
+        <div style="height:10px"></div>
+        <button class="secondary" id="closeDiffModal">İptal</button>
+      </div>
+    </div>
+
+    <!-- Game -->
+    <div class="card" id="gameGrid" style="display:none;">
+      <!-- Left Column (Board) -->
+      <div style="min-width: 0;"> <!-- min-width fixed for grid overflow -->
+        <div class="statusbar" style="flex-wrap: wrap;">
+          <div id="sideHint">Tarafın: —</div>
+          <div class="row" style="gap:5px">
+            <button class="primary" id="restartBtn" style="display:none; padding:6px 10px; font-size:12px;">Tekrar
+              Başlat</button>
+            <button class="secondary" id="swapBtn" style="display:none; padding:6px 10px; font-size:12px;">Yön
+              Değiş</button>
+            <button class="secondary" id="saveGameBtn" style="padding:6px 10px; font-size:12px;">Kaydet</button>
+            <button class="secondary" id="copyLinkBtn" style="padding:6px 10px; font-size:12px;">Link</button>
+            <button class="danger" id="leaveBtn" style="padding:6px 10px; font-size:12px;">Ayrıl</button>
+            <button class="danger" id="resignBtn" style="padding:6px 10px; font-size:12px;">Pes</button>
+          </div>
+        </div>
+
+        <div style="height:10px"></div>
+        <!-- Board Container with Eval Bar -->
+        <div class="board-container" style="position:relative;">
+          <div id="evalBar">
+            <div id="evalFill"></div>
+          </div>
+          <div id="board" style="width: 100%; max-width: 520px;"></div>
+          <div id="moveFeedback"></div>
+        </div>
+
+        <!-- Undo / Redo under board -->
+        <div class="row" style="justify-content:center; margin-top:10px; gap:10px;">
+          <button class="secondary" id="undoBtn" title="Geri Al (Undo)">&laquo;</button>
+          <button class="secondary" id="redoBtn" title="İleri Al (Redo)">&raquo;</button>
+        </div>
+
+        <div style="height:10px"></div>
+        <div class="box">
+          <div id="gameStatus">Hazır.</div>
+        </div>
+
+        <div style="height:10px"></div>
+        <div class="box">
+          <div class="muted" style="margin-bottom:6px;">Hamleler (PGN)</div>
+          <div id="moves"></div>
+        </div>
+
+        <div class="err" id="errBox2" style="display:none;"></div>
+      </div>
+
+      <!-- Right Column (Chat) -->
+      <div style="display:flex; flex-direction:column; min-width: 0;">
+
+
+        <!-- Removed Header -->
+
+        <div id="chat"></div>
+
+        <div style="height:10px"></div>
+
+        <div class="typing-indicator" id="typingIndicator" style="display:none">
+          <span style="margin-right:4px">Yazıyor</span>
+          <div class="dot"></div>
+          <div class="dot"></div>
+          <div class="dot"></div>
+        </div>
+
+        <div class="row">
+          <input id="chatInput" placeholder="Mesaj yaz…" style="flex:1; min-width: 0;">
+          <!-- min-width:0 for flex fix -->
+          <button class="primary" id="sendBtn">Gönder</button>
+        </div>
+        <div class="err" id="errBoxRight"></div>
+
+      </div>
+    </div>
+
+    <!-- Load Game Modal -->
+    <div id="loadModal"
+      style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.8); z-index:999; align-items:center; justify-content:center;">
+      <div class="card" style="width:100%; max-width:500px; max-height:80vh; overflow:auto; background:#0f1b33;">
+        <div class="row" style="justify-content:space-between; margin-bottom:10px;">
+          <h3 class="panel-title" style="margin:0">Kayıtlı Oyunlar</h3>
+          <button class="secondary" id="closeLoadModal" style="padding:4px 10px;">X</button>
+        </div>
+        <div id="savedList"></div>
+      </div>
+    </div>
+
+    <script>
+      (() => {
+        // ---------- helpers ----------
+        const byId = (id) => document.getElementById(id);
+        const api = (path) => `api/${path}`;
+
+        function qs(name) { return new URLSearchParams(location.search).get(name) || ""; }
+        function escapeHtml(s) {
+          return (s + "").replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m]));
+        }
+        async function postJSON(url, data) {
+          const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+          const j = await res.json().catch(() => ({ ok: false, error: "Bad JSON" }));
+          if (!res.ok) return { ok: false, error: j?.error || `HTTP ${res.status}` };
+          return j;
+        }
+
+        // ---------- state ----------
+        let room = "";
+        let token = "";
+        let name = "";
+        let color = ""; // "w" or "b" (spectator opsiyonel)
+        let lastSeq = 0;
+        let isSaved = false; // track if current game is saved
+        let didPromptSave = false; // track auto-prompt
+        let isLocal = false; // Local multiplayer flag
+        let isComputer = false; // Computer Check
+        let stockfish = null; // Engine Worker
+        let computerLevel = 1;
+
+        const game = new Chess();
+        let board = null;
+
+        // server authoritative game-over lock (moves disabled when true)
+        window.__SERVER_OVER__ = false;
+
+        // Eval State
+        let currentEval = 0; // Centipawns (White perspective)
+        let pendingMoveAnalysis = null; // { startEval, who, moveIndex }
+
+
+        // ---------- UI ----------
+        function setLobbyStatus(t) { byId("lobbyStatus").textContent = t || ""; }
+        function setErr(t) {
+          byId("errBox").textContent = t || "";
+          byId("errBoxRight").textContent = t || "";
+        }
+        function setRoomPill() {
+          if (isComputer) { byId("roomPill").textContent = "Mod: Bilgisayar"; return; }
+          if (isLocal) { byId("roomPill").textContent = "Mod: Yerel (Aynı Cihaz)"; return; }
+          byId("roomPill").textContent = room ? `Oda: ${room}` : "Oda: —";
+        }
+        function showGame() {
+          byId("lobbyCard").style.display = "none";
+          byId("gameGrid").style.display = "";
+        }
+        function renderMoves(pgn) {
+          // comments are usually {comment}, user wants (comment)
+          const formatted = (pgn || "").replace(/\{([^}]+)\}/g, "($1)");
+          byId("moves").textContent = formatted;
+        }
+        function renderStatus(extra = "") {
+          const turn = game.turn() === "w" ? "Beyaz" : "Siyah";
+          let s = `Sıra: <strong>${turn}</strong>`;
+
+          if (game.in_check && game.in_check()) s += ` • Şah!`;
+          if (game.in_checkmate && game.in_checkmate()) s = `<strong>Şah Mat.</strong>`;
+          if (game.in_draw && game.in_draw()) s = `<strong>Berabere.</strong>`;
+
+          if (extra) s += ` • ${extra}`;
+          byId("gameStatus").innerHTML = s;
+        }
+
+        function sideText() {
+          if (isComputer) return "Rakip: Bilgisayar (Seviye " + computerLevel + ")";
+          if (isLocal) return "Yerel Oyun (Sıra değişerek oynayın)";
+          if (color === "w") return "Tarafın: Beyaz";
+          if (color === "b") return "Tarafın: Siyah";
+          return "Tarafın: İzleyici (hamle yapamazsın)";
+        }
+        function canMove() {
+          if (isLocal) return true;
+          if (isComputer) return (game.turn() === 'w'); // Human plays White vs Computer
+          if (color !== "w" && color !== "b") return false;
+          return (game.turn() === color);
+        }
+
+        function appendChat(msg) {
+          const wrap = byId("chat");
+          const div = document.createElement("div");
+          div.className = "msg";
+          const who = msg.name || "Anonim";
+          const isMe = (who === name);
+          const badge = `<span class="badge ${isMe ? "me" : ""}">${escapeHtml(who)}${msg.color ? " • " + (msg.color === "w" ? "Beyaz" : "Siyah") : ""}</span>`;
+          div.innerHTML = `
+      <div class="meta">${badge} • ${escapeHtml(msg.time || "")}</div>
+      <div class="txt">${escapeHtml(msg.text || "")}</div>
+    `;
+          wrap.appendChild(div);
+          wrap.scrollTop = wrap.scrollHeight;
+        }
+
+        // ---------- highlights ----------
+        function highlightCheck() {
+          $("#board .square-55d63").removeClass("highlight-check");
+          if (game.in_check()) {
+            const turn = game.turn(); // 'w' or 'b'
+            const boardState = game.board();
+
+            for (let i = 0; i < 8; i++) {
+              for (let j = 0; j < 8; j++) {
+                const piece = boardState[i][j];
+                if (piece && piece.type === 'k' && piece.color === turn) {
+                  // Convert coordinates to algebraic square (e.g., [0,0] -> a8, [7,7] -> h1)
+                  const file = String.fromCharCode('a'.charCodeAt(0) + j);
+                  const rank = 8 - i;
+                  $(`#board .square-${file}${rank}`).addClass("highlight-check");
+                  return;
+                }
+              }
+            }
+          }
+        }
+
+        function clearHighlights() {
+          $("#board .square-55d63").removeClass(
+            "highlight-square highlight-move highlight-castle-path highlight-castle-rook"
+          );
+          // We do NOT remove highlight-check here automatically, it depends on game state.
+          // It is managed by highlightCheck() which is called after moves.
+          highlightCheck();
+        }
+
+        function highlightMoves(fromSquare) {
+          clearHighlights();
+
+          const moves = game.moves({ square: fromSquare, verbose: true });
+          if (!moves || moves.length === 0) return;
+
+          // selected square
+          $(`#board .square-${fromSquare}`).addClass("highlight-square");
+
+          moves.forEach(m => {
+            // normal destination
+            $(`#board .square-${m.to}`).addClass("highlight-move");
+
+            // castling guide
+            const flags = m.flags || "";
+            const isCastleK = flags.includes("k");
+            const isCastleQ = flags.includes("q");
+            if (!isCastleK && !isCastleQ) return;
+
+            const movingPiece = game.get(fromSquare);
+            if (!movingPiece || movingPiece.type !== "k") return;
+
+            const c = movingPiece.color; // 'w' or 'b'
+            const kingThrough = (c === "w")
+              ? (isCastleK ? "f1" : "d1")
+              : (isCastleK ? "f8" : "d8");
+
+            const rookFrom = (c === "w")
+              ? (isCastleK ? "h1" : "a1")
+              : (isCastleK ? "h8" : "a8");
+
+            const rookTo = (c === "w")
+              ? (isCastleK ? "f1" : "d1")
+              : (isCastleK ? "f8" : "d8");
+
+            // king path
+            $(`#board .square-${fromSquare}`).addClass("highlight-castle-path");
+            $(`#board .square-${kingThrough}`).addClass("highlight-castle-path");
+            $(`#board .square-${m.to}`).addClass("highlight-castle-path");
+
+            // rook markers
+            $(`#board .square-${rookFrom}`).addClass("highlight-castle-rook");
+            $(`#board .square-${rookTo}`).addClass("highlight-castle-rook");
+          });
+        }
+
+        let lastBoardFen = "start"; // track visual state
+        let lastTypingSent = 0;
+
+        // ---------- Audio ----------
+        const soundEnabled = (localStorage.getItem("satranc_sound") !== "off");
+        let isSoundOn = soundEnabled;
+        updateSoundBtn();
+
+        function updateSoundBtn() {
+          byId("soundBtn").textContent = isSoundOn ? "🔊 Ses" : "🔇 Ses";
+          byId("soundBtn").style.opacity = isSoundOn ? "1" : "0.5";
+        }
+
+        function toggleSound() {
+          isSoundOn = !isSoundOn;
+          localStorage.setItem("satranc_sound", isSoundOn ? "on" : "off");
+          updateSoundBtn();
+          if (isSoundOn) playMoveSound(true);
+        }
+
+        byId("soundBtn").addEventListener("click", toggleSound);
+
+        function playMoveSound(force = false) {
+          if (!isSoundOn && !force) return;
+          // Simple short beep for move
+          const ctx = new (window.AudioContext || window.webkitAudioContext)();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.type = "sine";
+          osc.frequency.value = 600;
+          gain.gain.setValueAtTime(0.1, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.1);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.1);
+        }
+
+        function playMsgSound() {
+          if (!isSoundOn) return;
+          // High ping for message
+          const ctx = new (window.AudioContext || window.webkitAudioContext)();
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.type = "sine";
+          osc.frequency.value = 1200;
+          gain.gain.setValueAtTime(0.1, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.15);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.15);
+        }
+
+        async function sendTypingHeartbeat() {
+          const now = Date.now();
+          if (now - lastTypingSent < 2000) return; // throttle 2s
+          lastTypingSent = now;
+
+          // fire and forget
+          postJSON(api("push_typing.php"), { room, token });
+        }
+
+        // ---------- actions (move) ----------
+        let selectedSquare = null;
+
+        // Helper to handle standard moves AND "King on Rook" castling intent
+        function attemptMove(source, target) {
+          // 1. Try standard move
+          let move = game.move({ from: source, to: target, promotion: "q" });
+
+          // 2. If invalid, try "King takes Rook" -> Castling
+          if (move === null) {
+            const piece = game.get(source);
+            if (piece && piece.type === 'k') {
+              // White King e1
+              if (piece.color === 'w' && source === 'e1') {
+                if (target === 'h1') move = game.move({ from: 'e1', to: 'g1', promotion: 'q' });
+                else if (target === 'a1') move = game.move({ from: 'e1', to: 'c1', promotion: 'q' });
+              }
+              // Black King e8
+              else if (piece.color === 'b' && source === 'e8') {
+                if (target === 'h8') move = game.move({ from: 'e8', to: 'g8', promotion: 'q' });
+                else if (target === 'a8') move = game.move({ from: 'e8', to: 'c8', promotion: 'q' });
+              }
+            }
+          }
+          return move;
+        }
+
+        function doLocalMove(source, target) {
+          const move = attemptMove(source, target);
+          if (move === null) return null;
+
+          board.position(game.fen(), true);
+          renderMoves(game.pgn());
+          renderStatus(); // updates turn text
+          checkLocalGameOver(); // check mate/draw locally
+          clearHighlights();
+          selectedSquare = null;
+          playMoveSound(true);
+          return move;
+        }
+
+
+        // Helper specifically for Local/Computer moves that doesn't need async server calls
+        function doLocalOrComputerMove(source, target) {
+          // Snapshot eval before move
+          const startEval = currentEval;
+          const turn = game.turn();
+
+          const move = attemptMove(source, target);
+          if (move === null) return null;
+
+          // Prepare analysis
+          pendingMoveAnalysis = {
+            startEval: startEval,
+            who: turn,
+            moveSan: move.san,
+            fen: game.fen()
+          };
+          // pendingMoveAnalysis set for quality tracking
+
+          // Clear redo stack on new move
+          redoStack = [];
+
+          board.position(game.fen(), true);
+          renderMoves(game.pgn());
+          renderStatus();
+          clearHighlights();
+          selectedSquare = null;
+          playMoveSound(true);
+
+          if (isLocal) {
+            checkLocalGameOver();
+            try { detectOpening(); } catch (e) { console.error('detectOpening error:', e); }
+            triggerAnalysis(); // Analyze new position
+          } else if (isComputer) {
+            // Check if user (White) mated/etc
+            if (checkComputerGameOver()) return move;
+            try { detectOpening(); } catch (e) { console.error('detectOpening error:', e); }
+
+            // Trigger Computer Turn
+            setTimeout(makeComputerMove, 250);
+            // Note: makeComputerMove will also trigger analysis implicitly by thinking
+          }
+
+          return move;
+        }
+
+        async function userMoveAction(source, target) {
+          setErr("");
+
+          // LOCAL OR COMPUTER MODE LOGIC
+          if (isLocal || isComputer) {
+            return doLocalOrComputerMove(source, target);
+          }
+
+          if (window.__SERVER_OVER__) return false;
+
+          // Snapshot for Analysis
+          const startEval = currentEval;
+          const turn = game.turn();
+
+          const move = attemptMove(source, target);
+          if (move === null) return false;
+
+          board.position(game.fen(), true);
+          lastBoardFen = game.fen(); // sync
+          renderMoves(game.pgn());
+          renderStatus("Hamle gönderiliyor…");
+          clearHighlights();
+          selectedSquare = null;
+
+          const status = {
+            check: (game.in_check && game.in_check()) ? 1 : 0,
+            checkmate: (game.in_checkmate && game.in_checkmate()) ? 1 : 0,
+            stalemate: (game.in_stalemate && game.in_stalemate()) ? 1 : 0
+          };
+
+          // Use the ACTUAL executed move for server communication (Sanitized)
+          const r = await postJSON(api("push_move.php"), {
+            room, token,
+            move: { from: move.from, to: move.to, promotion: "q" },
+            fen: game.fen(),
+            pgn: game.pgn(),
+            status
+          });
+
+          if (!r.ok) {
+            game.undo();
+            board.position(game.fen(), true);
+            lastBoardFen = game.fen(); // sync
+            renderMoves(game.pgn());
+            renderStatus();
+            setErr("Hamle gönderilemedi: " + (r.error || "Bilinmeyen hata"));
+            clearHighlights();
+            return false;
+          }
+
+          if (r.over) {
+            window.__SERVER_OVER__ = true;
+            const msg = (r.result === "draw")
+              ? `Oyun berabere bitti. (${r.reason || "—"})`
+              : `Oyun bitti. Kazanan: ${(r.winner === "w" ? "Beyaz" : "Siyah")} (${r.reason || "—"})`;
+            renderStatus(msg);
+          } else {
+            window.__SERVER_OVER__ = false;
+            renderStatus();
+
+            pendingMoveAnalysis = {
+              startEval, who: turn, moveSan: move.san, fen: game.fen()
+            };
+            triggerAnalysis(); // Analyze my confirmed move
+          }
+          return true;
+        }
+
+        // ---------- chessboard ----------
+        function initBoard(orientation) {
+          if (board && typeof board.destroy === 'function') board.destroy();
+          $("#board").empty(); // Ensure container is clean
+          board = Chessboard("board", {
+            draggable: true,
+            position: game.fen(),
+            orientation,
+            pieceTheme: 'img/chesspieces/wikipedia/{piece}.png',
+
+            onDragStart: (source, piece) => {
+              setErr("");
+              // Check if this click is actually a capture move from the previously selected square
+              if (selectedSquare) {
+                const moves = game.moves({ square: selectedSquare, verbose: true });
+                const isTargetString = moves.find(m => m.to === source);
+
+                if (isTargetString) {
+                  // Execute move immediately
+                  userMoveAction(selectedSquare, source);
+                  return false; // Prevent drag, we handled the move
+                }
+
+                // If not a valid move target, clear the previous selection
+                clearHighlights();
+                selectedSquare = null;
+              }
+
+              if (window.__SERVER_OVER__) return false;
+
+              // LOCAL CHECK
+              if (isLocal || isComputer) {
+                // only allow moving pieces of the side whose turn it is
+                if (game.turn() === "w" && piece.startsWith("b")) return false;
+                if (game.turn() === "b" && piece.startsWith("w")) return false;
+                // In computer mode, only allow White (human) to move
+                if (isComputer && game.turn() === "b") return false;
+              } else {
+                if (color === "spectator") return false;
+                if (!canMove()) return false;
+                if (color === "w" && piece.startsWith("b")) return false;
+                if (color === "b" && piece.startsWith("w")) return false;
+              }
+
+              if (game.game_over && game.game_over()) return false;
+
+              highlightMoves(source);
+              return true;
+            },
+
+            onDrop: (source, target) => {
+              if (source === target) return;
+
+              // Check for "King on own Rook" drop (Castling intent via drag-to-rook)
+              const piece = game.get(source);
+              const targetPiece = game.get(target);
+              const isKingOnRook = (piece && piece.type === 'k' && targetPiece && targetPiece.type === 'r' && piece.color === targetPiece.color);
+
+              // Local mode synchronous check
+              if (isLocal) {
+                const move = doLocalMove(source, target);
+                if (!move) return "snapback";
+
+                // If castling-on-rook, snapback to avoid visual artifact
+                if (isKingOnRook) return "snapback";
+                return;
+              }
+
+              // Server mode async
+              userMoveAction(source, target).then(success => {
+                if (!success) board.position(game.fen(), true);
+              });
+
+              // For server mode, if it looks like castling-on-rook, snapback immediately to clear UI
+              if (isKingOnRook) return "snapback";
+            },
+
+            onSnapEnd: () => {
+              // Removed: board.position() here was causing board to disappear
+              // The board sync is already handled in doLocalOrComputerMove and userMoveAction
+            }
+          });
+
+          // click-to-highlight & click-to-move
+          $("#board").off("mousedown.sq touchstart.sq").on("mousedown.sq touchstart.sq", ".square-55d63", async function (e) {
+            // prevent touch scrolling if needed, or double firing
+            // e.preventDefault(); 
+
+            try {
+              const cls = this.className || "";
+              const m = cls.match(/square-([a-h][1-8])/);
+              if (!m) return;
+              const clickedSq = m[1];
+
+              // 1. Try to move from previously selected square
+              if (selectedSquare) {
+                const success = await userMoveAction(selectedSquare, clickedSq);
+                if (success) return;
+                // if invalid move, select new piece (fall through)
+              }
+
+              // 2. Select new piece
+              const piece = game.get(clickedSq);
+              if (!piece) {
+                clearHighlights();
+                selectedSquare = null;
+                return;
+              }
+
+              if (window.__SERVER_OVER__) return;
+
+              // Local Mode Selection
+              if (isLocal) {
+                if (game.turn() === "w" && piece.color !== "w") { clearHighlights(); selectedSquare = null; return; }
+                if (game.turn() === "b" && piece.color !== "b") { clearHighlights(); selectedSquare = null; return; }
+              }
+              // Online Mode Selection
+              else {
+                if (!canMove()) return;
+                if (color === "w" && piece.color !== "w") { clearHighlights(); selectedSquare = null; return; }
+                if (color === "b" && piece.color !== "b") { clearHighlights(); selectedSquare = null; return; }
+              }
+
+              highlightMoves(clickedSq);
+              selectedSquare = clickedSq;
+
+            } catch (_) { }
+          });
+        }
+
+        // ---------- polling ----------
+        async function pollLoop() {
+          if (isLocal) return; // No polling in local mode
+          if (!room || !token) return;
+
+          try {
+            const url = api(`poll.php?room=${encodeURIComponent(room)}&since=${encodeURIComponent(lastSeq)}&token=${encodeURIComponent(token)}`);
+            const res = await fetch(url, { cache: "no-store" });
+            const j = await res.json();
+
+            if (!j.ok) {
+              setErr(j.error || "Poll hatası");
+            } else {
+              setErr("");
+
+              // --- SYNC COLOR / ROLE ---
+              if (j.my_color && j.my_color !== color && !isLocal) {
+                // Role changed!
+                color = j.my_color;
+                byId("sideHint").textContent = sideText();
+
+                // Re-orient board if I am player
+                if (color === "w") board.orientation("white");
+                else if (color === "b") board.orientation("black");
+
+                // Update buttons visibility
+                updateButtons();
+              }
+              updateButtons();
+
+              // if (typeof j.seq === "number") lastSeq = j.seq; // Moved to end
+
+
+              // authoritative state
+              // authoritative state
+              if (j.fen) {
+                // Snapshot for incoming move analysis
+                const startEval = currentEval;
+                const turn = game.turn();
+
+                // Normalized comparison:
+                // 1. Update internal logic state - prefer PGN for history
+                const fenBefore = game.fen();
+                let loaded = false;
+                if (j.pgn) {
+                  loaded = game.load_pgn(j.pgn);
+                }
+
+                if (!loaded) {
+                  if (j.fen === "start") game.reset();
+                  else { try { game.load(j.fen); } catch (_) { game.reset(); } }
+                }
+
+                const currentFen = game.fen();
+
+                // 2. Update visuals only if distinct from last rendered
+                if (currentFen !== lastBoardFen) {
+                  if (board) board.position(currentFen, true);
+                  lastBoardFen = currentFen;
+                  // use game.pgn() if available (has history), otherwise j.pgn
+                  renderMoves(game.pgn() || j.pgn || "");
+                  highlightCheck();
+                  playMoveSound();
+
+                  // Setup Analysis for this incoming move
+                  const h = game.history();
+                  const moveSan = h.length ? h[h.length - 1] : "?";
+                  pendingMoveAnalysis = { startEval, who: turn, moveSan, fen: game.fen() };
+
+                  triggerAnalysis(); // Analyze incoming move
+                }
+              }
+
+              // game over lock from server
+              if (j.over) {
+                window.__SERVER_OVER__ = true;
+                const msg = j.result === "draw"
+                  ? `Oyun berabere bitti. (${j.reason || "—"})`
+                  : `Oyun bitti. Kazanan: ${(j.winner === "w" ? "Beyaz" : "Siyah")} (${j.reason || "—"})`;
+                renderStatus(msg);
+
+                // Show restart button ONLY for White player
+                if (color === "w") {
+                  byId("restartBtn").style.display = "inline-block";
+                } else {
+                  byId("restartBtn").style.display = "none";
+                }
+
+              } else {
+                window.__SERVER_OVER__ = false;
+                renderStatus();
+                byId("restartBtn").style.display = "none"; // Hide if game not over
+              }
+
+              // check for save prompt
+              if (j.over && !didPromptSave && !isSaved) {
+                // Game just ended (or we just joined ended game and haven't prompted/saved)
+                // We should only prompt once.
+                // But we don't want to prompt immediately if the user is just watching replay.
+                // Prompt if we are a player
+                if (color === 'w' || color === 'b') {
+                  didPromptSave = true;
+                  setTimeout(() => {
+                    if (confirm("Oyun bitti. Kaydetmek ister misiniz?")) {
+                      saveGameAction();
+                    }
+                  }, 500);
+                }
+              }
+
+              if (Array.isArray(j.chat) && j.chat.length) {
+                let hasOpponentMsg = false;
+                j.chat.forEach(m => {
+                  appendChat(m);
+                  if ((m.name || "Anonim") !== name && (m.name !== "Sistem")) hasOpponentMsg = true;
+                });
+                if (hasOpponentMsg) playMsgSound();
+              }
+
+              // typing indicator
+              let showTyping = false;
+              if (j.typing_colors && Array.isArray(j.typing_colors)) {
+                // if any opponent color is in the array, show typing
+                const opponents = j.typing_colors.filter(c => c !== color); // exclude self
+                if (opponents.length > 0) showTyping = true;
+              }
+              byId("typingIndicator").style.display = showTyping ? "flex" : "none";
+
+              // Update seq AFTER successful processing to ensure we don't skip messages
+              if (typeof j.seq === "number") lastSeq = j.seq;
+            }
+          } catch (e) {
+            setErr("Bağlantı sorunu: " + e.message);
+          } finally {
+            setTimeout(pollLoop, 1000);
+          }
+        }
+
+        // ---------- check room existence ----------
+        let checkTimer = null;
+        let checkReqId = 0; // To prevent race conditions
+
+        async function checkRoomExists(code) {
+          const myId = ++checkReqId;
+
+          if (!code) {
+            byId("createBtn").disabled = false;
+            byId("createBtn").title = "";
+            setLobbyStatus("");
+            return;
+          }
+
+          // Use check_room.php
+          try {
+            const res = await fetch(api(`check_room.php?room=${encodeURIComponent(code)}`));
+            const j = await res.json();
+
+            // If a newer request was started, ignore this result
+            if (myId !== checkReqId) return;
+
+            if (j.ok && j.exists) {
+              byId("createBtn").disabled = true;
+              byId("createBtn").title = "Bu oda zaten var. Katıl'ı kullanın.";
+              setLobbyStatus("Bu oda kodu zaten kullanımda. Katılabilirsiniz.");
+            } else {
+              byId("createBtn").disabled = false;
+              byId("createBtn").title = "";
+              setLobbyStatus(""); // Clear if not exists
+            }
+          } catch (e) { console.error(e); }
+        }
+
+        // ---------- actions ----------
+        async function createRoom() {
+          setLobbyStatus("Oda oluşturuluyor…");
+          setErr("");
+
+          name = byId("name").value.trim() || "Anonim";
+          const requestedRoom = (byId("room").value.trim()).toUpperCase();
+
+          // Disable buttons to prevent double-click
+          byId("createBtn").disabled = true;
+          byId("joinBtn").disabled = true;
+          byId("joinWatchBtn").disabled = true;
+
+          const r = await postJSON(api("create_room.php"), { name, room: requestedRoom });
+
+          if (!r.ok) {
+            setLobbyStatus("");
+            setErr(r.error || "Oda oluşturulamadı");
+            byId("createBtn").disabled = false;
+            byId("joinBtn").disabled = false;
+            byId("joinWatchBtn").disabled = false;
+
+            // Re-validate room code in case failure was due to existence
+            // This ensures button gets disabled again if the room exists
+            if (requestedRoom) checkRoomExists(requestedRoom);
+            return;
+          }
+
+          room = r.room;
+          token = r.token;
+          color = r.color;
+
+          // Save session
+          sessionStorage.setItem("chess_room", room);
+          sessionStorage.setItem("chess_token", token);
+          sessionStorage.setItem("chess_name", name);
+
+          lastSeq = 0;
+          window.__SERVER_OVER__ = false;
+
+          setRoomPill();
+
+          const u = new URL(location.href);
+          u.searchParams.set("room", room);
+          history.replaceState({}, "", u.toString());
+
+          byId("sideHint").textContent = sideText();
+          showGame();
+
+          game.reset();
+          initBoard(color === "w" ? "white" : "black");
+          board.position("start");
+
+          renderMoves("");
+          renderStatus();
+
+          setLobbyStatus("");
+          pollLoop();
+        }
+
+        async function joinRoom(mode = "player") {
+          const modeText = (mode === "spectator") ? "seyirci" : "oyuncu";
+          setLobbyStatus(`Odaya katılınıyor (${modeText})…`);
+          setErr("");
+
+          name = byId("name").value.trim() || "Anonim";
+          room = (byId("room").value.trim() || qs("room")).toLocaleUpperCase('tr-TR');
+
+          if (!room) {
+            setLobbyStatus("");
+            setErr("Oda kodu gerekli.");
+            return;
+          }
+
+          // Disable buttons
+          byId("createBtn").disabled = true;
+          byId("joinBtn").disabled = true;
+          byId("joinWatchBtn").disabled = true;
+
+          // Attempt session resume if room matches
+          let existingToken = null;
+          if (room === sessionStorage.getItem("chess_room")) {
+            existingToken = sessionStorage.getItem("chess_token");
+          }
+
+          const r = await postJSON(api("join_room.php"), { name, room, mode, token: existingToken });
+          if (!r.ok) {
+            setLobbyStatus("");
+            setErr(r.error || "Katılım başarısız");
+            byId("createBtn").disabled = false;
+            byId("joinBtn").disabled = false;
+            byId("joinWatchBtn").disabled = false;
+            return;
+          }
+
+          token = r.token;
+          color = r.color;
+
+          // Save session
+          sessionStorage.setItem("chess_room", room);
+          sessionStorage.setItem("chess_token", token);
+          sessionStorage.setItem("chess_name", name);
+
+          lastSeq = 0;
+          window.__SERVER_OVER__ = false;
+
+
+          // Ensure we use the server-canonized room code
+          room = r.room || room;
+
+          setRoomPill();
+          byId("roomPill").textContent = "Oda: " + room; // Explicit update
+          byId("sideHint").textContent = sideText();
+          showGame();
+
+          if (r.pgn && game.load_pgn(r.pgn)) {
+            // loaded from PGN, history preserved
+          } else {
+            if (r.fen === "start" || !r.fen) game.reset();
+            else { try { game.load(r.fen); } catch (_) { game.reset(); } }
+          }
+
+          initBoard(color === "w" ? "white" : (color === "b" ? "black" : "white"));
+          board.position(game.fen(), false); // No animation on initial load to prevent "flying pieces"
+          renderMoves(r.pgn || "");
+          renderStatus();
+          highlightCheck();
+
+          // Enable Analysis
+          initStockfish();
+          triggerAnalysis();
+
+          const u = new URL(location.href);
+          u.searchParams.set("room", room);
+          history.replaceState({}, "", u.toString());
+
+          setLobbyStatus("");
+          pollLoop();
+        }
+
+        async function sendChat() {
+          setErr("");
+          const text = byId("chatInput").value.trim();
+          if (!text) return;
+
+          byId("chatInput").value = "";
+          const r = await postJSON(api("push_chat.php"), { room, token, text });
+          if (!r.ok) {
+            setErr("Mesaj gönderilemedi: " + (r.error || "Bilinmeyen hata"));
+          }
+        }
+
+        async function resign() {
+          if (isComputer) {
+            if (!confirm("Bilgisayara karşı pes etmek istiyor musunuz?")) return;
+            window.__SERVER_OVER__ = true; // Stop moves
+            renderStatus("Oyun bitti. Bilgisayar kazandı (Pes).");
+            byId("restartBtn").style.display = "inline-block";
+            return;
+          }
+
+          if (isLocal) {
+            if (!confirm("Pes etmek istiyor musunuz?")) return;
+            window.__SERVER_OVER__ = true;
+            const winner = game.turn() === 'w' ? "Siyah" : "Beyaz";
+            renderStatus(`Oyun bitti. ${winner} kazandı (Pes).`);
+            byId("restartBtn").style.display = "inline-block";
+            return;
+          }
+
+          if (!confirm("Pes etmek istediğinize emin misiniz?")) return;
+          const r = await postJSON(api("push_chat.php"), { room, token, text: "Pes etti." });
+          if (!r.ok) setErr("Pes mesajı gönderilemedi.");
+        }
+
+        async function restartGameAction() {
+          if (!confirm("Oyunu tekrar başlatmak istediğine emin misin?")) return;
+
+          if (isLocal || isComputer) {
+            game.reset();
+            board.position("start");
+            renderMoves("");
+            renderStatus();
+            window.__SERVER_OVER__ = false;
+            return;
+          }
+
+          setErr("");
+          const r = await postJSON(api("restart_game.php"), { room, token });
+          if (!r.ok) {
+            setErr("Başlatma hatası: " + (r.error || "Yetkiniz yok veya hata oluştu."));
+          } else {
+            // Success, reset local triggers if needed, but polling will handle state update
+            didPromptSave = false;
+            isSaved = false;
+            byId("restartBtn").style.display = "none";
+          }
+        }
+
+        async function doUndo() {
+          setErr("");
+          if (!room || !token) {
+            // Local Undo logic
+            if (isLocal) {
+              game.undo();
+              board.position(game.fen(), true);
+              renderMoves(game.pgn());
+              renderStatus();
+              window.__SERVER_OVER__ = false;
+              clearHighlights();
+              return;
+            }
+            return;
+          }
+          if (color === "spectator") { setErr("İzleyici undo yapamaz."); return; }
+
+          const r = await postJSON(api("push_undo.php"), { room, token });
+          if (!r.ok) { setErr("Undo başarısız: " + (r.error || "Bilinmeyen hata")); return; }
+
+          if (r.fen) {
+            if (r.fen === "start") game.reset();
+            else { try { game.load(r.fen); } catch (_) { game.reset(); } }
+            board.position(game.fen(), true);
+            renderMoves(r.pgn || "");
+          }
+          window.__SERVER_OVER__ = !!r.over;
+          renderStatus(r.over
+            ? (r.result === "draw"
+              ? `Oyun berabere bitti. (${r.reason || "—"})`
+              : `Oyun bitti. Kazanan: ${(r.winner === "w" ? "Beyaz" : "Siyah")} (${r.reason || "—"})`)
+            : ""
+          );
+          clearHighlights();
+        }
+
+        async function doRedo() {
+          setErr("");
+          if (!room || !token) return;
+          if (color === "spectator") { setErr("İzleyici redo yapamaz."); return; }
+
+          const r = await postJSON(api("push_redo.php"), { room, token });
+          if (!r.ok) { setErr("Redo başarısız: " + (r.error || "Bilinmeyen hata")); return; }
+
+          if (r.fen) {
+            if (r.fen === "start") game.reset();
+            else { try { game.load(r.fen); } catch (_) { game.reset(); } }
+            board.position(game.fen(), true);
+            renderMoves(r.pgn || "");
+          }
+          window.__SERVER_OVER__ = !!r.over;
+          renderStatus(r.over
+            ? (r.result === "draw"
+              ? `Oyun berabere bitti. (${r.reason || "—"})`
+              : `Oyun bitti. Kazanan: ${(r.winner === "w" ? "Beyaz" : "Siyah")} (${r.reason || "—"})`)
+            : ""
+          );
+          clearHighlights();
+        }
+
+        // ---------- wiring ----------
+        byId("createBtn").addEventListener("click", createRoom);
+        byId("joinBtn").addEventListener("click", () => joinRoom("player"));
+        byId("joinWatchBtn").addEventListener("click", () => joinRoom("spectator"));
+
+        byId("leaveBtn").addEventListener("click", async () => {
+          if (confirm("Odadan ayrılmak istediğinize emin misiniz?")) {
+            // Notify server
+            if (room && token) {
+              await postJSON(api("leave_room.php"), { room, token });
+            }
+
+            // Clear state
+            isLocal = false;
+            room = "";
+            token = "";
+            color = "";
+            lastSeq = 0;
+            name = ""; // Optional: keep name or clear
+
+            // Allow buttons again
+            byId("createBtn").disabled = false;
+            byId("joinBtn").disabled = false;
+            byId("joinWatchBtn").disabled = false;
+
+            // Reset UI
+            byId("roomPill").textContent = "Oda: —";
+            byId("lobbyCard").style.display = "";
+            byId("gameGrid").style.display = "none";
+            byId("chat").innerHTML = "";
+
+            // Restore online-only elements
+            byId("chatInput").disabled = false;
+            byId("sendBtn").disabled = false;
+            byId("copyLinkBtn").style.display = "";
+            byId("saveGameBtn").style.display = "";
+            byId("resignBtn").style.display = "";
+            byId("restartBtn").style.display = "none"; // default hidden
+
+
+            // clear URL
+            const u = new URL(location.href);
+            u.searchParams.delete("room");
+            history.replaceState({}, "", u.toString());
+
+            setLobbyStatus("");
+          }
+        });
+
+        byId("room").addEventListener("input", (e) => {
+          const val = e.target.value.trim().toUpperCase();
+          clearTimeout(checkTimer);
+          checkTimer = setTimeout(() => checkRoomExists(val), 300);
+        });
+        byId("sendBtn").addEventListener("click", sendChat);
+        byId("chatInput").addEventListener("keydown", (e) => { if (e.key === "Enter") sendChat(); });
+        byId("chatInput").addEventListener("input", sendTypingHeartbeat);
+        byId("resignBtn").addEventListener("click", resign);
+        byId("restartBtn").addEventListener("click", restartGameAction);
+        byId("undoBtn").addEventListener("click", doUndo);
+        byId("redoBtn").addEventListener("click", doRedo);
+
+        byId("copyLinkBtn").addEventListener("click", async () => {
+          const u = new URL(location.href);
+          u.searchParams.set("room", room);
+          try {
+            await navigator.clipboard.writeText(u.toString());
+            setErr("");
+            byId("copyLinkBtn").textContent = "Kopyalandı!";
+            setTimeout(() => byId("copyLinkBtn").textContent = "Linki Kopyala", 900);
+          } catch {
+            setErr("Kopyalama başarısız. Link: " + u.toString());
+          }
+        });
+
+        // Save / Load logic
+        let whiteName = "Beyaz";
+        let blackName = "Siyah";
+
+        async function saveGameAction() {
+          let fileName = "Oyun";
+
+          if (room) {
+            try {
+              // Fetch latest state including names
+              const res = await fetch(api(`poll.php?room=${encodeURIComponent(room)}&since=${lastSeq}&token=${token}`));
+              const j = await res.json();
+
+              let w = "Beyaz";
+              let b = "Siyah";
+
+              if (j.players) {
+                w = j.players.w || "Beyaz";
+                b = j.players.b || "Siyah";
+              }
+
+              // Sanitize filenames (remove non-alphanumeric except specific chars)
+              const safeW = w.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ_\- ]/g, "").trim() || "Beyaz";
+              const safeB = b.replace(/[^a-zA-Z0-9çÇğĞıİöÖşŞüÜ_\- ]/g, "").trim() || "Siyah";
+
+              const d = new Date();
+              const ds = d.getFullYear() + "-" +
+                String(d.getMonth() + 1).padStart(2, '0') + "-" +
+                String(d.getDate()).padStart(2, '0') + "_" +
+                String(d.getHours()).padStart(2, '0') + "-" +
+                String(d.getMinutes()).padStart(2, '0') + "-" +
+                String(d.getSeconds()).padStart(2, '0');
+
+              fileName = `${safeW}(Beyaz)_${safeB}(Siyah)_${ds}`;
+            } catch (e) {
+              console.error(e);
+            }
+          } else if (isLocal) {
+            // Local mode default
+            const d = new Date();
+            const ds = d.getFullYear() + "-" +
+              String(d.getMonth() + 1).padStart(2, '0') + "-" +
+              String(d.getDate()).padStart(2, '0') + "_" +
+              String(d.getHours()).padStart(2, '0') + "-" +
+              String(d.getMinutes()).padStart(2, '0') + "-" +
+              String(d.getSeconds()).padStart(2, '0');
+            fileName = `Yerel_Mac_${ds}`;
+          }
+
+          const saveName = prompt("Oyun için bir isim girin:", fileName);
+          if (saveName === null) return; // cancel
+
+          setErr("");
+          if (!room) return;
+
+          const r = await postJSON(api("save_game.php"), { room, name: saveName });
+          if (r.ok) {
+            isSaved = true;
+            alert("Oyun başarıyla kaydedildi!");
+          } else {
+            alert("Kaydetme hatası: " + (r.error || "Bilinmiyor"));
+          }
+        }
+
+        async function showLoadModal() {
+          byId("loadModal").style.display = "flex";
+          byId("savedList").innerHTML = "<div class='muted'>Yükleniyor...</div>";
+
+          const res = await fetch(api("get_saved_games.php"));
+          const j = await res.json();
+          const list = byId("savedList");
+          list.innerHTML = "";
+
+          if (!j.ok || !j.files || j.files.length === 0) {
+            list.innerHTML = "<div class='muted'>Kayıtlı oyun yok.</div>";
+            return;
+          }
+
+          j.files.forEach(f => {
+            const row = document.createElement("div");
+            row.style.cssText = "display:flex; justify-content:space-between; align-items:center; padding:8px; border-bottom:1px solid var(--line);";
+            row.innerHTML = `
+                <div>
+                    <div style="font-weight:bold">${escapeHtml(f.name)}</div>
+                    <div class="muted" style="font-size:11px">${escapeHtml(f.date_fmt)}</div>
+                </div>
+                <button class="primary" style="font-size:12px; padding:6px 10px;">Yükle</button>
+            `;
+            row.querySelector("button").onclick = () => loadGameAction(f.file);
+            list.appendChild(row);
+          });
+        }
+
+        async function loadGameAction(filename) {
+          if (!confirm("Bu oyunu yüklemek istiyor musunuz? Yeni bir oda oluşturulacak.")) return;
+
+          byId("loadModal").style.display = "none";
+          setLobbyStatus("Oyun yükleniyor...");
+
+          const r = await postJSON(api("load_game.php"), { file: filename });
+          if (!r.ok) {
+            setErr("Yükleme hatası: " + (r.error || "?"));
+            return;
+          }
+
+          // Success, r.room is the new room code
+          byId("room").value = r.room;
+          // Auto join as player
+          joinRoom("player");
+        }
+
+        function checkLocalGameOver() {
+          let msg = "";
+          let reason = "";
+
+          if (game.in_checkmate()) {
+            msg = "Oyun bitti. Kazanan: " + (game.turn() === "w" ? "Siyah" : "Beyaz") + " (Mat)";
+            window.__SERVER_OVER__ = true;
+          }
+          else if (game.in_stalemate()) {
+            msg = "Oyun berabere bitti. (Pat - Şahın gidecek yeri yok)";
+            window.__SERVER_OVER__ = true;
+          }
+          else if (game.in_threefold_repetition()) {
+            msg = "Oyun berabere bitti. (3 Kez Hamle Tekrarı)";
+            window.__SERVER_OVER__ = true;
+          }
+          else if (game.insufficient_material()) {
+            msg = "Oyun berabere bitti. (Yetersiz Materyal)";
+            window.__SERVER_OVER__ = true;
+          }
+          else if (game.in_draw()) {
+            // Catch-all for 50-move or other draws
+            msg = "Oyun berabere bitti. (50 Hamle Kuralı veya Diğer)";
+            window.__SERVER_OVER__ = true;
+          }
+
+          if (msg) {
+            renderStatus(msg);
+            byId("restartBtn").style.display = "inline-block";
+          }
+        }
+
+        function startLocalGame() {
+          isLocal = true;
+          isComputer = false; // ensure computer mode is off
+          room = "";
+          token = "";
+          color = ""; // irrelevant in local
+          name = "Yerel Oyuncular";
+          window.__SERVER_OVER__ = false;
+
+          setLobbyStatus("");
+          showGame();
+
+          // UI Cleanup for local
+          byId("sideHint").textContent = "Yerel Mod (Sırayla Oynayın)";
+          byId("roomPill").textContent = "Yerel Maç";
+
+          // Hide online-only elements
+          byId("chatInput").disabled = true;
+          byId("sendBtn").disabled = true;
+          byId("copyLinkBtn").style.display = "none";
+          byId("saveGameBtn").style.display = "none"; // server-side save not supported for local yet
+
+          // We can repurpose resign/restart but keeping it simple for now
+          byId("resignBtn").style.display = "none";
+          byId("restartBtn").style.display = "inline-block"; // Re-enable for local reset?
+
+          game.reset();
+          initBoard("white");
+          renderMoves("");
+          renderStatus();
+
+          // Enable Analysis
+          initStockfish();
+          triggerAnalysis();
+        }
+
+        byId("localBtn").addEventListener("click", startLocalGame);
+
+        // Hijack restart button for local
+        const oldRestart = byId("restartBtn").onclick; // actually it is addEventListener, so we might need logic inside restartGameAction
+
+        // We need to modify restartGameAction to handle local
+        // Redefine logic inside restartGameAction or wrap it.
+        // Since restartGameAction is defined above, let's modify it or check isLocal inside it?
+        // I will modify restartGameAction below instead.
+
+        byId("saveGameBtn").addEventListener("click", saveGameAction);
+        byId("loadGameBtn").addEventListener("click", showLoadModal);
+        byId("closeLoadModal").addEventListener("click", () => byId("loadModal").style.display = "none");
+
+        // auto fill room from URL
+        const roomFromUrl = qs("room");
+        if (roomFromUrl) byId("room").value = roomFromUrl.toUpperCase();
+
+        // ... helper function ...
+        function updateButtons() {
+          if (isLocal) {
+            byId("swapBtn").style.display = "none";
+            return;
+          }
+          // Show swap only if I am White
+          // User requested: "Siyah oyuncu odaya girdiğinde 'Yön Değiştir' butonu pasif olması gerekiyordu"
+          if (color === 'w') {
+            byId("swapBtn").style.display = "inline-block";
+          } else {
+            byId("swapBtn").style.display = "none";
+          }
+        }
+
+        async function doSwap() {
+          if (!confirm("Tarafları değiştirmek/takas etmek istiyor musunuz?")) return;
+          const r = await postJSON(api("swap_sides.php"), { room, token });
+          if (!r.ok) setErr("Hata: " + r.error);
+        }
+
+        byId("swapBtn").addEventListener("click", doSwap);
+
+        // ---------- Undo / Redo Logic ----------
+        let redoStack = [];
+
+        function undoAction() {
+          // Generally only allow for Local / Computer modes or Analysis
+          // Online matches usually don't allow simple client-side undo
+          if (!isLocal && !isComputer) {
+            alert("Online oyunlarda geri alma şu an aktif değil.");
+            return;
+          }
+
+          const m = game.undo();
+          if (m) {
+            redoStack.push(m);
+            board.position(game.fen(), true); // animate
+            renderMoves(game.pgn());
+            renderStatus();
+            clearHighlights();
+            window.__SERVER_OVER__ = false; // unlock if it was mate
+          }
+        }
+
+        function redoAction() {
+          if (!isLocal && !isComputer) return;
+
+          if (redoStack.length === 0) return;
+          const m = redoStack.pop();
+          game.move(m);
+          board.position(game.fen(), true);
+          renderMoves(game.pgn());
+          renderStatus();
+          clearHighlights();
+          playMoveSound(true);
+        }
+
+        byId("undoBtn").addEventListener("click", undoAction);
+        byId("redoBtn").addEventListener("click", redoAction);
+
+
+
+        // ---------- Stockfish / Computer Logic ----------
+
+        function updateEvalBar(score) {
+          // Update global state
+          currentEval = score;
+
+          // score is in centipawns from White's perspective
+          let percent = 50 + (score / 20); // 1000cp / 20 = 50% gain -> 100% total
+          if (percent > 100) percent = 100;
+          if (percent < 0) percent = 0;
+          byId("evalFill").style.height = percent + "%";
+        }
+
+        // Dictionary of Common Openings (Simplified)
+        const OPENINGS = {
+          "e4 e5 Nf3 Nc6 Bb5": "Ruy Lopez",
+          "e4 e5 Nf3 Nc6 Bc4": "Italian Game",
+          "e4 e5 Nf3 Nf6": "Petrov Defense",
+          "e4 e5 f4": "King's Gambit",
+          "e4 e5": "Open Game",
+          "e4 c5": "Sicilian Defense",
+          "e4 e6": "French Defense",
+          "e4 c6": "Caro-Kann Defense",
+          "e4 d6": "Pirc Defense",
+          "d4 d5 c4": "Queen's Gambit",
+          "d4 Nf6 c4 g6": "King's Indian / Grünfeld",
+          "d4 Nf6 c4 e6 Nc3 Bb4": "Nimzo-Indian",
+          "c4": "English Opening",
+          "Nf3": "Réti Opening"
+        };
+        let lastOpeningName = "";
+
+        function appendSystemMessage(text) {
+          // System messages in chat
+          appendChat({
+            name: "Sistem 🤖",
+            text: text,
+            time: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
+          });
+        }
+
+        function detectOpening() {
+          const moves = game.history().join(" ");
+          let bestMatch = "";
+
+          // Find longest matching prefix
+          for (const seq in OPENINGS) {
+            if (moves === seq || moves.trim().startsWith(seq)) { // Simplified match
+              if (seq.length > bestMatch.length) {
+                bestMatch = seq;
+              }
+            }
+          }
+
+          if (bestMatch) {
+            const name = OPENINGS[bestMatch];
+            if (name !== lastOpeningName) {
+              lastOpeningName = name;
+              appendSystemMessage("Açılış: " + name);
+            }
+          }
+        }
+
+        function showMoveFeedback(text, color) {
+          const el = byId("moveFeedback");
+          el.innerHTML = text;
+          el.style.color = color;
+          el.style.opacity = 1;
+          el.style.top = "40%"; // Reset position
+
+          // Animate up
+          requestAnimationFrame(() => {
+            el.style.top = "35%";
+          });
+
+          // Hide after 3s
+          if (window._fbTimer) clearTimeout(window._fbTimer);
+          window._fbTimer = setTimeout(() => {
+            el.style.opacity = 0;
+          }, 3000);
+        }
+
+        function analyzeMoveQuality(currentScore, analysisData) {
+          const { startEval, who, moveSan } = analysisData;
+
+          // Calculate delta from the perspective of the player who moved
+          let delta = 0;
+          if (who === 'w') {
+            delta = currentScore - startEval;
+          } else {
+            delta = startEval - currentScore; // Black wants White score to drop
+          }
+
+          // Categories
+          let label = "";
+          let color = "#fff";
+          let comment = "";
+
+          if (delta >= 50) { label = "Mükemmel 🌟"; color = "#4ade80"; comment = "Excellent"; }
+          else if (delta >= 0) { label = "İyi ✅"; color = "#a3e635"; comment = "Good"; }
+          else if (delta >= -30) { label = "Normal 😐"; color = "#fbbf24"; comment = "Fair"; } // Inaccuracy
+          else if (delta >= -150) { label = "Hata ⚠️"; color = "#f87171"; comment = "Bad"; } // Mistake
+          else { label = "Çok Kötü 💀"; color = "#ef4444"; comment = "Terrible"; } // Blunder
+
+          // Special case for Mate
+          if (Math.abs(currentScore) > 8000) {
+            if (delta > 0) { label = "Mat Yakın! 🔥"; color = "#c084fc"; comment = "Mate in sight"; }
+          }
+
+          // Display Feedback
+          showMoveFeedback(label, color);
+
+          // Annotate PGN if possible
+          if (typeof game.set_comment === 'function') {
+            try {
+              game.set_comment(comment);
+            } catch (e) {
+              console.error("set_comment failed", e);
+            }
+          } else {
+            // PGN annotation not supported in this chess.js version - silently skip
+          }
+
+          // Chat Feedback (System Message)
+          // Chat Feedback (System Message)
+          // Calculate Move Number: history length is total ply.
+          // If White moved (who='w'), it was ply 1, 3, 5... => Move 1, 2, 3...
+          // If Black moved (who='b'), it was ply 2, 4, 6... => Move 1, 2, 3...
+          // Formula: Math.ceil(game.history().length / 2)
+          // Actually, analysisData has the moveSan of the move that just happened.
+          // The current game state is AFTER the move.
+          const ply = game.history().length;
+          const moveNum = Math.ceil(ply / 2);
+          const prefix = `${moveNum}.${moveSan}`;
+
+          if (comment === "Excellent") appendSystemMessage(`${prefix} - Mükemmel Hamle! 🌟 (+${Math.abs(delta)} cp kazanç)`);
+          else if (comment === "Bad") appendSystemMessage(`${prefix} - Hata yapıldı ⚠️ (${Math.abs(delta)} cp kayıp)`);
+          else if (comment === "Terrible") appendSystemMessage(`${prefix} - Büyük Hata (Blunder) 💀 (${Math.abs(delta)} cp kayıp)`);
+          else if (label.indexOf("Mat") > -1) appendSystemMessage(`${prefix} - Mat Yakın! 🔥`);
+
+          // detectOpening already called in doLocalOrComputerMove
+
+          // Refresh moves to show comment
+          renderMoves(game.pgn());
+        }
+
+        function triggerAnalysis() {
+          // Ensure engine is ready
+          if (!stockfish) {
+            initStockfish();
+            // Wait for init
+            setTimeout(triggerAnalysis, 200);
+            return;
+          }
+
+          stockfish.postMessage('stop'); // Stop previous
+          stockfish.postMessage('position fen ' + game.fen());
+          stockfish.postMessage('go depth 15'); // Good depth for eval
+        }
+
+        function initStockfish() {
+          if (stockfish) return; // already init
+          try {
+            stockfish = new Worker('js/stockfish.js');
+            stockfish.onmessage = function (event) {
+              const line = event.data;
+
+              // Debug / Eval parsing
+              if (line.indexOf('info') > -1 && line.indexOf('score') > -1) {
+                let score = 0;
+                if (line.indexOf('mate') > -1) {
+                  const match = line.match(/mate (-?\d+)/);
+                  if (match) {
+                    const m = parseInt(match[1]);
+                    score = (m > 0) ? 9000 : -9000;
+                  }
+                } else {
+                  const match = line.match(/cp (-?\d+)/);
+                  if (match) {
+                    score = parseInt(match[1]);
+                  }
+                }
+
+                // Stockfish score is from side-to-move perspective
+                if (game.turn() === 'b') {
+                  score = -score;
+                }
+                updateEvalBar(score);
+
+                // Check for Move Analysis
+                if (pendingMoveAnalysis) {
+                  const matchDepth = line.match(/depth (\d+)/);
+                  const depth = matchDepth ? parseInt(matchDepth[1]) : 0;
+
+                  const shortFen = (f) => f.split(" ").slice(0, 4).join(" ");
+                  const isFenMatch = shortFen(pendingMoveAnalysis.fen) === shortFen(game.fen());
+
+                  if (isFenMatch && depth >= 6) {
+                    analyzeMoveQuality(score, pendingMoveAnalysis);
+                    pendingMoveAnalysis = null; // Done
+                  }
+                }
+              }
+
+              if (line === 'uciok') {
+                // console.log('Stockfish Engine Ready');
+              } else if (line.indexOf('bestmove') > -1) {
+                // GUARD: Only execute move if Computer Mode AND Comp Turn
+                if (isComputer && game.turn() === 'b') {
+                  const match = line.match(/^bestmove ([a-h][1-8][a-h][1-8])([qrbn])?/);
+                  if (match) {
+                    const from = match[1].substring(0, 2);
+                    const to = match[1].substring(2, 4);
+                    const promotion = match[2] || 'q';
+                    doLocalOrComputerMove(from, to);
+                  }
+                }
+              }
+            };
+
+            stockfish.postMessage('uci');
+            stockfish.postMessage('isready');
+          } catch (e) {
+            alert("Stockfish motoru yüklenemedi: " + e);
+          }
+        }
+
+        window._startComputerGame = function (level) {
+          computerLevel = level;
+          isComputer = true;
+          isLocal = false;
+          room = "";
+          token = "";
+          color = "w"; // Player is White
+          name = "Oyuncu vs Bilgisayar";
+          window.__SERVER_OVER__ = false;
+
+          byId("diffModal").style.display = "none";
+          setLobbyStatus("");
+          showGame();
+
+          // UI Cleanup
+          byId("sideHint").textContent = `Rakip: Bilgisayar (Seviye ${level})`;
+          byId("roomPill").textContent = "Mod: Bilgisayar";
+
+          byId("chatInput").disabled = true;
+          byId("sendBtn").disabled = true;
+          byId("copyLinkBtn").style.display = "none";
+          // Re-enable Restart for Computer Mode
+          byId("restartBtn").style.display = "inline-block";
+          byId("restartBtn").onclick = () => {
+            game.reset();
+            initBoard('white');
+            renderMoves("");
+            renderStatus();
+            window.__SERVER_OVER__ = false;
+            stockfish.postMessage('ucinewgame');
+          };
+          byId("leaveBtn").onclick = () => { location.reload(); };
+
+          game.reset();
+          initBoard('white');
+          renderMoves("");
+          renderStatus();
+
+          // Init Engine
+          initStockfish();
+
+          // Configure Level
+          // Skill Level: 0-20
+          setTimeout(() => {
+            stockfish.postMessage('ucinewgame');
+            stockfish.postMessage('isready');
+            stockfish.postMessage('setoption name Skill Level value ' + level);
+          }, 500);
+        };
+
+        function makeComputerMove() {
+          if (window.__SERVER_OVER__) return;
+          if (game.turn() === 'w') return; // It's white's turn, wait for player
+
+          // Send position to stockfish
+          stockfish.postMessage('position fen ' + game.fen());
+
+          // Thinking time based on level? Or fixed depth?
+          // For browser feel, time limit is better.
+          const depth = computerLevel > 10 ? 15 : 5;
+          const movetime = computerLevel * 100 + 500; // 600ms to 2500ms
+
+          // stockfish.postMessage('go depth ' + depth);
+          stockfish.postMessage('go movetime ' + movetime);
+        }
+
+        function checkComputerGameOver() {
+          let msg = "";
+          if (game.in_checkmate()) {
+            const winner = (game.turn() === "w" ? "Siyah (Bilgisayar)" : "Beyaz (Sen)");
+            msg = "Oyun bitti. Kazanan: " + winner + " (Mat)";
+            window.__SERVER_OVER__ = true;
+          }
+          else if (game.in_stalemate()) {
+            msg = "Oyun berabere bitti. (Pat - Şahın gidecek yeri yok)";
+            window.__SERVER_OVER__ = true;
+          }
+          else if (game.in_threefold_repetition()) {
+            msg = "Oyun berabere bitti. (3 Kez Hamle Tekrarı)";
+            window.__SERVER_OVER__ = true;
+          }
+          else if (game.insufficient_material()) {
+            msg = "Oyun berabere bitti. (Yetersiz Materyal)";
+            window.__SERVER_OVER__ = true;
+          }
+          else if (game.in_draw()) {
+            msg = "Oyun berabere bitti. (50 Hamle Kuralı veya Diğer)";
+            window.__SERVER_OVER__ = true;
+          }
+
+          if (msg) {
+            renderStatus(msg);
+            byId("restartBtn").style.display = "inline-block";
+            return true;
+          }
+          return false;
+        }
+
+        // Button Listeners
+        byId("computerBtn").addEventListener("click", () => {
+          byId("diffModal").style.display = "flex";
+        });
+        byId("closeDiffModal").addEventListener("click", () => {
+          byId("diffModal").style.display = "none";
+        });
+
+        // Initial check if room is pre-filled
+        if (byId("room").value) {
+          checkRoomExists(byId("room").value);
+        }
+
+        window.addEventListener("beforeunload", () => {
+          if (room && token) {
+            const data = new Blob([JSON.stringify({ room, token })], { type: 'application/json' });
+            navigator.sendBeacon(api("leave_room.php"), data);
+          }
+        });
+
+        // Auto-join if session matches
+        const storedRoom = sessionStorage.getItem("chess_room");
+        // We compare against the input value which is populated from URL above
+        if (storedRoom && byId("room").value === storedRoom) {
+          const storedName = sessionStorage.getItem("chess_name");
+          if (storedName) byId("name").value = storedName;
+
+          // Short timeout to ensure UI is ready
+          setTimeout(() => joinRoom("player"), 100);
+        }
+
+      })();
+    </script>
+
+</body>
+
+</html>

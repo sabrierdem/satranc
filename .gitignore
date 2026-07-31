@@ -1,0 +1,11 @@
+# macOS
+.DS_Store
+
+# Runtime data written by the PHP backend
+api/_rooms/*
+api/_saved_games/*
+!api/_rooms/.gitkeep
+!api/_saved_games/.gitkeep
+
+# Claude Code local settings
+.claude/
