@@ -563,7 +563,18 @@
       (() => {
         // ---------- helpers ----------
         const byId = (id) => document.getElementById(id);
-        const api = (path) => `api/${path}`;
+
+        // The PHP backend lives on satrancevi.com.tr. When the page is served from
+        // there (or from a local dev server) we stay same-origin; the GitHub Pages
+        // mirror has no PHP, so it calls satrancevi.com.tr cross-origin instead.
+        // That host allows this origin via api/_cors.php.
+        const API_BASE = (() => {
+          const h = location.hostname;
+          const sameOrigin = h === "satrancevi.com.tr" || h === "www.satrancevi.com.tr" ||
+            h === "localhost" || h === "127.0.0.1" || h === "";
+          return sameOrigin ? "api/" : "https://satrancevi.com.tr/api/";
+        })();
+        const api = (path) => API_BASE + path;
 
         function qs(name) { return new URLSearchParams(location.search).get(name) || ""; }
         function escapeHtml(s) {
@@ -2192,7 +2203,10 @@
 
         window.addEventListener("beforeunload", () => {
           if (room && token) {
-            const data = new Blob([JSON.stringify({ room, token })], { type: 'application/json' });
+            // text/plain keeps this a CORS-simple request: sendBeacon cannot run a
+            // preflight, so application/json would be dropped on the Pages build.
+            // leave_room.php parses a raw text/plain body just the same.
+            const data = new Blob([JSON.stringify({ room, token })], { type: 'text/plain' });
             navigator.sendBeacon(api("leave_room.php"), data);
           }
         });

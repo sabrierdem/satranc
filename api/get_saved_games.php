@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/_cors.php';
 header('Content-Type: application/json; charset=utf-8');
 
 $dir = __DIR__ . "/_saved_games";
