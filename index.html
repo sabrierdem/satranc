@@ -394,27 +394,6 @@
       }
     }
 
-    /* Move Quality Feedback */
-    #moveFeedback {
-      position: absolute;
-      top: 40%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(0, 0, 0, 0.85);
-      color: #fff;
-      padding: 12px 24px;
-      border-radius: 50px;
-      font-weight: 800;
-      font-size: 18px;
-      z-index: 100;
-      pointer-events: none;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      opacity: 0;
-      transition: opacity 0.3s;
-      text-align: center;
-    }
-
     /* Floating version badge (bottom-right, fixed) */
     #verBadge {
       position: fixed;
@@ -601,7 +580,6 @@
             <div id="evalFill"></div>
           </div>
           <div id="board" style="width: 100%; max-width: 520px;"></div>
-          <div id="moveFeedback"></div>
         </div>
 
         <!-- Undo / Redo under board -->
@@ -712,7 +690,6 @@
 
         // Eval State
         let currentEval = 0; // Centipawns (White perspective)
-        let pendingMoveAnalysis = null; // { startEval, who, moveIndex }
 
 
         // ---------- UI ----------
@@ -960,21 +937,8 @@
 
         // Helper specifically for Local/Computer moves that doesn't need async server calls
         function doLocalOrComputerMove(source, target) {
-          // Snapshot eval before move
-          const startEval = currentEval;
-          const turn = game.turn();
-
           const move = attemptMove(source, target);
           if (move === null) return null;
-
-          // Prepare analysis
-          pendingMoveAnalysis = {
-            startEval: startEval,
-            who: turn,
-            moveSan: move.san,
-            fen: game.fen()
-          };
-          // pendingMoveAnalysis set for quality tracking
 
           // Clear redo stack on new move
           redoStack = [];
@@ -1012,10 +976,6 @@
           }
 
           if (window.__SERVER_OVER__) return false;
-
-          // Snapshot for Analysis
-          const startEval = currentEval;
-          const turn = game.turn();
 
           const move = attemptMove(source, target);
           if (move === null) return false;
@@ -1063,10 +1023,7 @@
             window.__SERVER_OVER__ = false;
             renderStatus();
 
-            pendingMoveAnalysis = {
-              startEval, who: turn, moveSan: move.san, fen: game.fen()
-            };
-            triggerAnalysis(); // Analyze my confirmed move
+            triggerAnalysis(); // Refresh eval bar for the new position
           }
           return true;
         }
@@ -1238,10 +1195,6 @@
               // authoritative state
               // authoritative state
               if (j.fen) {
-                // Snapshot for incoming move analysis
-                const startEval = currentEval;
-                const turn = game.turn();
-
                 // Normalized comparison:
                 // 1. Update internal logic state - prefer PGN for history
                 const fenBefore = game.fen();
@@ -1266,12 +1219,7 @@
                   highlightCheck();
                   playMoveSound();
 
-                  // Setup Analysis for this incoming move
-                  const h = game.history();
-                  const moveSan = h.length ? h[h.length - 1] : "?";
-                  pendingMoveAnalysis = { startEval, who: turn, moveSan, fen: game.fen() };
-
-                  triggerAnalysis(); // Analyze incoming move
+                  triggerAnalysis(); // Refresh eval bar for the new position
                 }
               }
 
@@ -2031,89 +1979,6 @@
           }
         }
 
-        function showMoveFeedback(text, color) {
-          const el = byId("moveFeedback");
-          el.innerHTML = text;
-          el.style.color = color;
-          el.style.opacity = 1;
-          el.style.top = "40%"; // Reset position
-
-          // Animate up
-          requestAnimationFrame(() => {
-            el.style.top = "35%";
-          });
-
-          // Hide after 3s
-          if (window._fbTimer) clearTimeout(window._fbTimer);
-          window._fbTimer = setTimeout(() => {
-            el.style.opacity = 0;
-          }, 3000);
-        }
-
-        function analyzeMoveQuality(currentScore, analysisData) {
-          const { startEval, who, moveSan } = analysisData;
-
-          // Calculate delta from the perspective of the player who moved
-          let delta = 0;
-          if (who === 'w') {
-            delta = currentScore - startEval;
-          } else {
-            delta = startEval - currentScore; // Black wants White score to drop
-          }
-
-          // Categories
-          let label = "";
-          let color = "#fff";
-          let comment = "";
-
-          if (delta >= 50) { label = "Mükemmel 🌟"; color = "#4ade80"; comment = "Excellent"; }
-          else if (delta >= 0) { label = "İyi ✅"; color = "#a3e635"; comment = "Good"; }
-          else if (delta >= -30) { label = "Normal 😐"; color = "#fbbf24"; comment = "Fair"; } // Inaccuracy
-          else if (delta >= -150) { label = "Hata ⚠️"; color = "#f87171"; comment = "Bad"; } // Mistake
-          else { label = "Çok Kötü 💀"; color = "#ef4444"; comment = "Terrible"; } // Blunder
-
-          // Special case for Mate
-          if (Math.abs(currentScore) > 8000) {
-            if (delta > 0) { label = "Mat Yakın! 🔥"; color = "#c084fc"; comment = "Mate in sight"; }
-          }
-
-          // Display Feedback
-          showMoveFeedback(label, color);
-
-          // Annotate PGN if possible
-          if (typeof game.set_comment === 'function') {
-            try {
-              game.set_comment(comment);
-            } catch (e) {
-              console.error("set_comment failed", e);
-            }
-          } else {
-            // PGN annotation not supported in this chess.js version - silently skip
-          }
-
-          // Chat Feedback (System Message)
-          // Chat Feedback (System Message)
-          // Calculate Move Number: history length is total ply.
-          // If White moved (who='w'), it was ply 1, 3, 5... => Move 1, 2, 3...
-          // If Black moved (who='b'), it was ply 2, 4, 6... => Move 1, 2, 3...
-          // Formula: Math.ceil(game.history().length / 2)
-          // Actually, analysisData has the moveSan of the move that just happened.
-          // The current game state is AFTER the move.
-          const ply = game.history().length;
-          const moveNum = Math.ceil(ply / 2);
-          const prefix = `${moveNum}.${moveSan}`;
-
-          if (comment === "Excellent") appendSystemMessage(`${prefix} - Mükemmel Hamle! 🌟 (+${Math.abs(delta)} cp kazanç)`);
-          else if (comment === "Bad") appendSystemMessage(`${prefix} - Hata yapıldı ⚠️ (${Math.abs(delta)} cp kayıp)`);
-          else if (comment === "Terrible") appendSystemMessage(`${prefix} - Büyük Hata (Blunder) 💀 (${Math.abs(delta)} cp kayıp)`);
-          else if (label.indexOf("Mat") > -1) appendSystemMessage(`${prefix} - Mat Yakın! 🔥`);
-
-          // detectOpening already called in doLocalOrComputerMove
-
-          // Refresh moves to show comment
-          renderMoves(game.pgn());
-        }
-
         function triggerAnalysis() {
           // Ensure engine is ready
           if (!stockfish) {
@@ -2156,20 +2021,6 @@
                   score = -score;
                 }
                 updateEvalBar(score);
-
-                // Check for Move Analysis
-                if (pendingMoveAnalysis) {
-                  const matchDepth = line.match(/depth (\d+)/);
-                  const depth = matchDepth ? parseInt(matchDepth[1]) : 0;
-
-                  const shortFen = (f) => f.split(" ").slice(0, 4).join(" ");
-                  const isFenMatch = shortFen(pendingMoveAnalysis.fen) === shortFen(game.fen());
-
-                  if (isFenMatch && depth >= 6) {
-                    analyzeMoveQuality(score, pendingMoveAnalysis);
-                    pendingMoveAnalysis = null; // Done
-                  }
-                }
               }
 
               if (line === 'uciok') {
@@ -2345,6 +2196,12 @@
         // Single source of truth for the app version + modification history.
         // Newest release first; the badge shows CHANGELOG[0].version.
         const CHANGELOG = [
+          {
+            version: "1.3.1", date: "2026-08-07", changes: [
+              "Hamle başına anlık değerlendirme kaldırıldı (kalite etiketleri ve sohbetteki sistem yorumları)",
+              "Gizlilik metnine gerçek iletişim adresi eklendi",
+            ]
+          },
           {
             version: "1.3.0", date: "2026-07-31", changes: [
               "Sürüm 1.3.0'a yükseltildi.",
